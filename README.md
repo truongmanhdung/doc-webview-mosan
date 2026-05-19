@@ -91,40 +91,6 @@ Excerpt from `ECommerceWeb/index.tsx` and related helpers — only logic tied to
 
 **Response used for WebView:** `response.data.info.url` and `response.data.transId`
 
-**Helper** (`libs/helpers/src/features/eCommerce.tsx`):
-
-```tsx
-const onCheckInfo = async (param: ILottoCheckInfo) => {
-  showLoading();
-  const { phoneNumber, selfBuy } = param;
-  let signature;
-  if (selfBuy) {
-    signature = await EncryptHelper.encryptSha256(
-      `${authenticationReducer?.userInfo?.accountNumber}${selfBuy}`,
-      authenticationReducer.signatureKey ?? ''
-    );
-  } else {
-    signature = await EncryptHelper.encryptSha256(
-      `${phoneNumber}${selfBuy}`,
-      authenticationReducer.signatureKey ?? ''
-    );
-  }
-  const params = {
-    phoneNumber: selfBuy
-      ? authenticationReducer?.userInfo?.accountNumber
-      : phoneNumber,
-    selfBuy,
-    signature,
-  };
-  const response = await ECommerceServices.checkInfoAndGetUrl(params);
-  hideLoading();
-  if (response?.succeeded && !response.failed) {
-    return { success: true, data: response.data };
-  }
-  return { success: false, message: response?.data?.message, data: response?.data };
-};
-```
-
 **Flow A — Self-buy inside `ECommerceWeb`** (`fetchSelfBuyUrl: true`, no URL in params):
 
 ```tsx
