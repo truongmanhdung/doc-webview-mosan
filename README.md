@@ -340,3 +340,24 @@ const renderLoading = () => (
 For a test URL, device model, or log correlation (timestamps / account), please coordinate with our mobile team.
 
 **Package reference:** `mosan-mobileapp-main` (monorepo root `package.json` → `react-native-webview`)
+
+---
+
+## 5. Software changes — continuous WebView reload mitigation
+
+**Context:** On some Android devices (e.g. Vivo X70 Pro, Android 14), the shop WebView could reload repeatedly, often starting from the **second visit** to the screen.
+
+**Source file:** `apps/end-user/src/screens/ECommerce/ECommerceWeb/index.tsx`
+
+| # | Change | Rationale |
+|---|--------|-----------|
+| 1 | **Removed** `navigation.addListener('focus', () => refWebview.current?.goBack())` | On Android, calling `goBack()` on every screen **focus** often **reloads** the page. After the first visit the WebView has history, so each refocus can trigger a reload loop (see [react-native-webview #3933](https://github.com/react-native-webview/react-native-webview/issues/3933)). |
+| 2 | **Removed** pre-request `fetch(shopInfo.url)` before mounting the WebView | Avoids **hitting the URL twice** (standalone `fetch` + WebView load) and avoids toggling `errorWebView` in a way that **unmounts/remounts** the WebView repeatedly on some devices. |
+| 3 | **`errorWebView`** initial state: `useState(() => !paramInfo?.url)` | If the URL is already in `route.params`, do not block the first paint behind a wrong gate → fewer unnecessary remounts. |
+| 4 | **`incognito={Platform.OS === 'ios'}`** (incognito off on Android) | Android incognito behavior is inconsistent; disabling it on Android keeps **cookies/session** closer to a normal browser (similar to KMP where a second open worked). |
+| 5 | **Removed** `renderToHardwareTextureAndroid` | Some OEM devices (Vivo, etc.) show WebView glitches or reloads when this is enabled. |
+| 6 | Added **`backToAppHandled`** (`useRef`) in `onNavigationStateChange` | `BackToApp` may appear across multiple redirects → handle **once** per screen visit to avoid tight `navigate` / `reset` loops. |
+| 7 | Added **`key={shopInfo.url}`** on `<WebView />` | Remount the WebView **only when the shop URL changes**, not on unrelated re-renders. |
+| 8 | Load failures handled via WebView **`onError`** (error modal) | Replaces relying only on pre-`fetch` status; aligns with row 2. |
+
+**Implementation note:** The same points are summarized in the block comment at the top of `ECommerceWeb/index.tsx` for quick internal reference.
